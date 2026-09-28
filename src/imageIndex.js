@@ -8,6 +8,8 @@ const DATA_DIR = path.resolve(process.cwd(), "data");
 const META_FILE = path.join(DATA_DIR, "violet-image-index.meta.json");
 const EMBED_FILE = path.join(DATA_DIR, "violet-image-index.bin");
 const BATCH_SIZE = Number(process.env.IMAGE_INDEX_BATCH_SIZE || 6);
+const MIN_BATCH_INTERVAL_MS = Number(process.env.IMAGE_INDEX_MIN_BATCH_INTERVAL_MS || 5500);
+let lastBatchStartedAt = 0;
 
 let imageIndex = [];
 let indexState = {
@@ -166,20 +168,53 @@ export async function buildImageIndex(products, { limit = products.length, onPro
       const batchProducts = pending.slice(start, start + BATCH_SIZE);
       const urls = batchProducts.map(product => normalizeImageUrl(product.image_url));
 
+      const elapsed = Date.now() - lastBatchStartedAt;
+      if (lastBatchStartedAt && elapsed < MIN_BATCH_INTERVAL_MS) {
+        await new Promise(resolve => setTimeout(resolve, MIN_BATCH_INTERVAL_MS - elapsed));
+      }
+
       let embeddings;
-      try {
-        embeddings = await embedImageUrlsBatch(urls);
-      } catch (batchError) {
-        console.error("[image-index] batch failed; retrying individually:", batchError.message || batchError);
-        embeddings = [];
-        for (const url of urls) {
-          try {
-            const single = await embedImageUrlsBatch([url]);
-            embeddings.push(single[0]);
-          } catch (singleError) {
-            console.error("[image-index] image failed:", singleError.message || singleError);
-            embeddings.push(null);
+      while (true) {
+        lastBatchStartedAt = Date.now();
+        try {
+          embeddings = await embedImageUrlsBatch(urls);
+          break;
+        } catch (batchError) {
+          const message = batchError?.message || String(batchError);
+
+          if (/429|RESOURCE_EXHAUSTED|quota/i.test(message)) {
+            const match = message.match(/retry(?: in| after)\s+([0-9.]+)\s*s/i);
+            const retrySeconds = Math.max(30, match ? Number(match[1]) + 2 : 35);
+
+            console.warn(
+              `[image-index] Gemini quota reached. Waiting ${retrySeconds}s before retrying the same batch.`
+            );
+
+            indexState = {
+              ...indexState,
+              building: true,
+              count: meta.records.length,
+              processed: start,
+              totalPending: pending.length,
+              error: "Gemini embedding rate limit; waiting before retry.",
+            };
+
+            await new Promise(resolve => setTimeout(resolve, retrySeconds * 1000));
+            continue;
           }
+
+          console.error("[image-index] batch failed:", message);
+          embeddings = [];
+          for (const url of urls) {
+            try {
+              const single = await embedImageUrlsBatch([url]);
+              embeddings.push(single[0]);
+            } catch (singleError) {
+              console.error("[image-index] image failed:", singleError.message || singleError);
+              embeddings.push(null);
+            }
+          }
+          break;
         }
       }
 
