@@ -137,7 +137,12 @@ export async function buildImageIndex(products, { limit = products.length, onPro
   const loaded = await loadPersistentIndex(products, { limit: scope });
   if (loaded && loaded.count === selected.length) return loaded;
 
-  indexState = { ...indexState, building: true, error: null };
+  indexState = {
+    ...indexState,
+    building: true,
+    count: 0,
+    error: null,
+  };
 
   try {
     let meta = await readMeta();
@@ -147,6 +152,11 @@ export async function buildImageIndex(products, { limit = products.length, onPro
     }
 
     const existing = new Set((meta.records || []).map(record => record.key));
+    indexState = {
+      ...indexState,
+      building: true,
+      count: meta.records.length,
+    };
     const pending = selected.filter(product => {
       const url = normalizeImageUrl(product.image_url);
       return url && !existing.has(productKey(product));
@@ -213,7 +223,17 @@ export async function buildImageIndex(products, { limit = products.length, onPro
       meta.builtAt = new Date().toISOString();
       await writeMeta(meta);
 
-      const done = start + batchProducts.length;
+      const done = Math.min(start + batchProducts.length, pending.length);
+      indexState = {
+        ...indexState,
+        built: false,
+        building: true,
+        count: meta.records.length,
+        processed: done,
+        totalPending: pending.length,
+        builtAt: meta.builtAt,
+        error: null,
+      };
       onProgress?.(done, pending.length, meta.records.length);
     }
 
@@ -224,6 +244,8 @@ export async function buildImageIndex(products, { limit = products.length, onPro
       built: meta.records.length === selected.length,
       building: false,
       count: meta.records.length,
+      processed: pending.length,
+      totalPending: pending.length,
       builtAt: meta.builtAt,
       error: meta.records.length === selected.length ? null : "Some images could not be indexed.",
     };
