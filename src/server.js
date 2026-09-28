@@ -1,6 +1,7 @@
 import express from "express";
 import { syncCatalog, getCatalogState, findByCode, searchProducts, checkAvailability } from "./catalog.js";
 import { analyzeProductImage, createSalesReply } from "./gemini.js";
+import { buildImageIndex, getImageIndexState, matchImageBase64 } from "./imageIndex.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -119,6 +120,45 @@ app.post("/api/ai/sales-reply", async (req, res) => {
 
     const reply = await createSalesReply({ customerMessage, product });
     return res.json({ ok: true, reply });
+  } catch (error) {
+    return res.status(502).json({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.get("/api/ai/image-index/status", (_req, res) => {
+  res.json({ ok: true, ...getImageIndexState() });
+});
+
+app.post("/api/ai/image-index/build", async (req, res) => {
+  try {
+    const state = getCatalogState();
+    const limit = Number(req.body?.limit || 18);
+    if (!state.products.length) {
+      return res.status(409).json({ ok: false, error: "catalog_not_loaded" });
+    }
+
+    const result = await buildImageIndex(state.products, {
+      limit,
+      onProgress: (done, total, indexed) => console.log(`[image-index] ${done}/${total} — indexed ${indexed}`),
+    });
+
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(502).json({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.post("/api/ai/match-image", async (req, res) => {
+  try {
+    const { base64Image, mimeType, topK } = req.body || {};
+    const matches = await matchImageBase64({ base64Image, mimeType, topK });
+    return res.json({ ok: true, matches });
   } catch (error) {
     return res.status(502).json({
       ok: false,
