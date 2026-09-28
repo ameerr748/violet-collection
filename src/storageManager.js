@@ -10,7 +10,7 @@ function requireEnv(name) {
 
 export function getConfig() {
   return {
-    baseUrl: (process.env.STORAGE_MANAGER_BASE_URL || DEFAULT_BASE_URL).replace(/\\/$/, ""),
+    baseUrl: (process.env.STORAGE_MANAGER_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, ""),
     token: requireEnv("STORAGE_MANAGER_TOKEN"),
     perPage: Number(process.env.STORAGE_MANAGER_PER_PAGE || 18),
   };
