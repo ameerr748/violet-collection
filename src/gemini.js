@@ -30,57 +30,35 @@ export async function analyzeProductImage({ base64Image, mimeType = "image/jpeg"
           {
             text: [
               "أنت محلل صور لمنتجات متجر فيوليت النسائي.",
-              "حلل صورة المنتج فقط ولا تخترع معلومات غير ظاهرة.",
-              "أخرج JSON منظم يحتوي على:",
-              "category: shoes أو clothes أو bags أو wallets أو other",
-              "dominantColor: اللون الغالب بالعربية إن أمكن",
-              "style: وصف قصير للستايل والشكل",
-              "visibleText: أي كود أو نص ظاهر على الصورة",
-              "possibleProductCode: كود المنتج إذا كان ظاهرًا أو null",
-              "sizeText: أي قياس ظاهر أو null",
-              "brandText: العلامة إن كانت ظاهرة أو null",
-              "confidence: رقم من 0 إلى 1",
-              "notes: ملاحظات بصرية قصيرة.",
-              "لا تحدد السعر أو المخزون؛ هذه المعلومات يجب أن تأتي من Storage Manager."
+              "حلل الصورة فقط ولا تخترع السعر أو المخزون.",
+              "أجب بصيغة JSON صحيحة في سطر واحد.",
+              'المفاتيح: category, dominantColor, style, visibleText, possibleProductCode, sizeText, brandText, confidence, notes.',
+              "إذا لم تعرف قيمة اجعلها null، وconfidence رقم بين 0 و1."
             ].join("\n"),
           },
         ],
       },
     ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "object",
-        properties: {
-          category: { type: "string" },
-          dominantColor: { type: "string" },
-          style: { type: "string" },
-          visibleText: { type: "string" },
-          possibleProductCode: { type: ["string", "null"] },
-          sizeText: { type: ["string", "null"] },
-          brandText: { type: ["string", "null"] },
-          confidence: { type: "number" },
-          notes: { type: "string" }
-        },
-        required: [
-          "category",
-          "dominantColor",
-          "style",
-          "visibleText",
-          "possibleProductCode",
-          "sizeText",
-          "brandText",
-          "confidence",
-          "notes"
-        ]
-      }
-    }
   });
 
   const text = response.text?.trim();
   if (!text) throw new Error("Gemini returned no text.");
 
-  return JSON.parse(text);
+  const cleaned = text.replace(/^\`\`\`json\s*/i, "").replace(/\s*\`\`\`$/i, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return { raw: text };
+  }
+}
+
+export async function createTextTest() {
+  const ai = getGemini();
+  const response = await ai.models.generateContent({
+    model: process.env.GEMINI_TEXT_MODEL || "gemini-3.8-flash",
+    contents: "أجب بكلمة واحدة فقط: نجح",
+  });
+  return response.text?.trim() || "";
 }
 
 export async function createSalesReply({ customerMessage, product }) {
