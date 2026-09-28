@@ -163,3 +163,42 @@ export function cosineSimilarity(a, b) {
   if (!normA || !normB) return 0;
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
+
+export async function embedImageUrlsBatch(urls) {
+  if (!Array.isArray(urls) || urls.length === 0) return [];
+
+  const ai = getGemini();
+  const contents = [];
+  const mimeTypes = [];
+
+  for (const url of urls) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Image download failed: " + response.status + " for " + url);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const mimeType = (response.headers.get("content-type") || "image/jpeg").split(";")[0];
+    mimeTypes.push(mimeType);
+    contents.push({
+      parts: [{
+        inlineData: {
+          mimeType,
+          data: bytes.toString("base64"),
+        },
+      }],
+    });
+  }
+
+  const response = await ai.models.embedContent({
+    model: process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
+    contents,
+  });
+
+  const embeddings = response.embeddings || [];
+  if (embeddings.length !== urls.length) {
+    throw new Error("Gemini returned " + embeddings.length + " embeddings for " + urls.length + " images.");
+  }
+
+  return embeddings.map((embedding, i) => ({
+    values: embedding.values,
+    mimeType: mimeTypes[i],
+  }));
+}
