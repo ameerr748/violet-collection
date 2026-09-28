@@ -1,0 +1,17 @@
+{
+  "name": "violet-ai-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Violet AI sales backend connected to Storage Manager",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
