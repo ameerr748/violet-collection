@@ -133,12 +133,51 @@ export async function embedImageBase64({ base64Image, mimeType = "image/jpeg" })
   return embedding;
 }
 
-export async function embedImageUrl(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Image download failed: ${response.status}`);
+async function fetchImageWithRetry(url) {
+  const attempts = Number(process.env.IMAGE_DOWNLOAD_RETRIES || 4);
+  const timeoutMs = Number(process.env.IMAGE_DOWNLOAD_TIMEOUT_MS || 20000);
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Violet-AI-Backend/0.3",
+          Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          Referer: "https://storagemanageriq.site/shop/products",
+        },
+        signal: controller.signal,
+      });
+
+      if (response.ok) {
+        return response;
+      }
+
+      if (![408, 425, 429, 500, 502, 503, 504].includes(response.status)) {
+        throw new Error("Image download failed: " + response.status + " for " + url);
+      }
+
+      lastError = new Error("Image download temporary failure: " + response.status + " for " + url);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (attempt < attempts) {
+      const delay = Math.min(15000, 1500 * 2 ** (attempt - 1));
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
 
+  throw lastError || new Error("Image download failed for " + url);
+}
+
+export async function embedImageUrl(url) {
+  const response = await fetchImageWithRetry(url);
   const arrayBuffer = await response.arrayBuffer();
   return embedImageBase64({
     base64Image: Buffer.from(arrayBuffer).toString("base64"),
@@ -172,8 +211,7 @@ export async function embedImageUrlsBatch(urls) {
   const mimeTypes = [];
 
   for (const url of urls) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Image download failed: " + response.status + " for " + url);
+    const response = await fetchImageWithRetry(url);
     const bytes = Buffer.from(await response.arrayBuffer());
     const mimeType = (response.headers.get("content-type") || "image/jpeg").split(";")[0];
     mimeTypes.push(mimeType);
