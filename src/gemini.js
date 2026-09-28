@@ -102,3 +102,64 @@ export async function createSalesReply({ customerMessage, product }) {
 
   return response.text?.trim() || "";
 }
+
+
+export async function embedImageBase64({ base64Image, mimeType = "image/jpeg" }) {
+  if (!base64Image || !String(base64Image).trim()) {
+    throw new Error("base64Image is required");
+  }
+
+  const ai = getGemini();
+
+  const response = await ai.models.embedContent({
+    model: process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-2",
+    contents: [
+      {
+        parts: [{
+          inlineData: {
+            mimeType,
+            data: String(base64Image).replace(/^data:[^;]+;base64,/, ""),
+          },
+        }],
+      },
+    ],
+  });
+
+  const embedding = response.embeddings?.[0]?.values;
+  if (!Array.isArray(embedding) || embedding.length === 0) {
+    throw new Error("Gemini returned no image embedding.");
+  }
+
+  return embedding;
+}
+
+export async function embedImageUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Image download failed: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return embedImageBase64({
+    base64Image: Buffer.from(arrayBuffer).toString("base64"),
+    mimeType: (response.headers.get("content-type") || "image/jpeg").split(";")[0],
+  });
+}
+
+export function cosineSimilarity(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+    throw new Error("Embedding dimensions do not match.");
+  }
+
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  if (!normA || !normB) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
