@@ -147,7 +147,7 @@ export async function embedImageUrl(url) {
 }
 
 export function cosineSimilarity(a, b) {
-  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+  if (!a || !b || a.length !== b.length) {
     throw new Error("Embedding dimensions do not match.");
   }
 
