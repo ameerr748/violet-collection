@@ -1,44 +1,79 @@
 # Violet AI Backend
 
-Backend foundation for Violet's AI sales system.
+هذا هو الباكند الأساسي لنظام **Violet AI Sales Agent**.
 
-## What this first version does
+## ما تم بناؤه
 
-- Connects securely to the Storage Manager Products API.
-- Uses a Bearer token from the `STORAGE_MANAGER_TOKEN` environment variable.
-- Syncs the full product catalog through pagination.
-- Searches products by product code.
-- Checks exact size/color availability from product variants.
-- Exposes JSON endpoints for the future AI, Messenger and Meta integrations.
+### 1. Storage Manager
+يرتبط بالـAPI الحقيقي:
 
-## Security
+`GET https://storagemanageriq.site/api/products?page=1&per_page=18`
 
-Never put the Storage Manager token in source code, frontend JavaScript, GitHub Pages, or chat messages.
+ويقرأ البيانات الحالية من Storage Manager، بما فيها:
+- كود المنتج
+- الصورة
+- السعر
+- المخزون
+- حالة المخزون
+- اللون
+- القياسات والـvariants
 
-Set it as an environment variable:
+يدعم مزامنة كل صفحات المنتجات، ثم البحث داخل الكتالوج.
 
-```text
-STORAGE_MANAGER_TOKEN=YOUR_NEW_TOKEN
-```
+### 2. فحص القياس والمخزون
+مثال:
 
-The token that was previously pasted into chat should be revoked/replaced before deployment.
+`GET /api/products/520Q/availability?size=39`
 
-## Local run
+يقرأ قياس 39 من الـvariant نفسه بدل الاعتماد على إجمالي مخزون المنتج.
 
-Requirements: Node.js 20+
+### 3. Gemini
+يوجد أساس لتحليل صورة الزبونة وإخراج بيانات منظمة، ثم كتابة رد مبيعات مبني فقط على بيانات Storage Manager.
+
+### 4. API داخلي جاهز للخطوات القادمة
+- `GET /health`
+- `GET /api/catalog/status`
+- `POST /api/catalog/sync`
+- `GET /api/products/:code`
+- `GET /api/products/:code/availability?size=39`
+- `GET /api/products/search?q=...`
+- `POST /api/ai/analyze-image`
+- `POST /api/ai/sales-reply`
+
+## التشغيل على Windows
+
+المطلوب Node.js 20 أو أحدث.
+
+من مجلد المشروع:
 
 ```powershell
-npm install
-npm start
+powershell -ExecutionPolicy Bypass -File .\run-local.ps1
 ```
 
-Open:
+البرنامج سيطلب منك:
+1. Bearer Token جديد لـ Storage Manager.
+2. Gemini API Key بشكل اختياري في هذه المرحلة.
 
-- http://localhost:3000/health
-- http://localhost:3000/api/catalog/status
-- http://localhost:3000/api/products/520Q
-- http://localhost:3000/api/products/520Q/availability?size=39
+لا تحفظ هذه القيم داخل الملفات ولا تضعها في GitHub.
 
-## Important
+## أمان مهم جدًا
 
-The Storage Manager API is currently treated as the source of truth. This project does not copy prices or stock into a second database.
+الـToken الذي ظهر سابقًا في المحادثة يجب إلغاؤه/استبداله قبل أي تشغيل دائم.
+
+لا نضع التوكن داخل:
+- JavaScript في المتصفح
+- GitHub Pages
+- README
+- Git commits
+- رسائل Messenger
+
+## المرحلة التالية
+
+بعد نجاح التشغيل المحلي سنضيف:
+1. مطابقة صورة الزبونة مع منتجات Violet.
+2. البحث عن بديل مشابه عند نفاد المنتج.
+3. نظام خصومات مستقل لا يسمح للـAI باختراع سعر.
+4. تنسيق حذاء + جنطة + ملابس حسب المخزون.
+5. سجل محادثات وحجوزات.
+6. Webhook لـFacebook/Messenger.
+7. توليد Reels تلقائيًا.
