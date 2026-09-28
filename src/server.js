@@ -1,7 +1,7 @@
 import express from "express";
 import { syncCatalog, getCatalogState, findByCode, searchProducts, checkAvailability } from "./catalog.js";
 import { analyzeProductImage, createSalesReply } from "./gemini.js";
-import { buildImageIndex, getImageIndexState, matchImageBase64 } from "./imageIndex.js";
+import { buildImageIndex, getImageIndexState, loadImageIndex, matchImageBase64 } from "./imageIndex.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -191,6 +191,9 @@ app.listen(port, async () => {
   if (String(process.env.SYNC_ON_START || "true").toLowerCase() === "true") {
     try {
       await syncCatalog();
+      const state = getCatalogState();
+      await loadImageIndex(state.products, { limit: Number(process.env.IMAGE_INDEX_SCOPE || state.products.length) });
+      console.log("[image-index] persistent index loaded.");
     } catch (error) {
       console.error("[violet] initial catalog sync failed.");
       console.error(error instanceof Error ? error.message : String(error));
