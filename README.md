@@ -77,3 +77,21 @@ powershell -ExecutionPolicy Bypass -File .\run-local.ps1
 5. سجل محادثات وحجوزات.
 6. Webhook لـFacebook/Messenger.
 7. توليد Reels تلقائيًا.
+
+## اختبار أول صورة مع Gemini
+
+بعد تشغيل السيرفر، افتح PowerShell جديدة داخل المشروع وشغّل:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\test-gemini-image.ps1
+```
+
+الاختبار يستخدم صورة `520Q` من Storage Manager، ويرسلها إلى Gemini لتحليل:
+- القسم
+- اللون
+- النص الظاهر
+- كود المنتج إن كان ظاهرًا
+- القياس الظاهر
+- درجة الثقة
+
+ولا يعتمد على Gemini لتحديد السعر أو المخزون؛ هذه المعلومات تبقى من Storage Manager.
