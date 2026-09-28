@@ -167,6 +167,32 @@ app.post("/api/ai/match-image", async (req, res) => {
   }
 });
 
+app.get("/api/products/out-of-stock", (req, res) => {
+  const state = getCatalogState();
+  const products = state.products
+    .filter(product => Number(product.total_stock || 0) <= 0)
+    .map(product => ({
+      id: product.id,
+      product_code: product.product_code,
+      code_letter: product.code_letter,
+      category: product.category?.name || "",
+      description: product.description || "",
+      selling_price: product.selling_price,
+      total_stock: Number(product.total_stock || 0),
+      stock_status: product.stock_status || "",
+      colors: [...new Set((product.variants || []).map(v => v.color).filter(Boolean))].join("، "),
+      sizes: [...new Set((product.variants || []).map(v => v.size).filter(Boolean))].join("، "),
+      image_url: product.image_url ? new URL(product.image_url, "https://storagemanageriq.site").toString() : "",
+      updated_at: product.updated_at || "",
+    }));
+
+  res.json({
+    ok: true,
+    count: products.length,
+    products,
+  });
+});
+
 app.get("/api/products/search", (req, res) => {
   const products = searchProducts({
     q: req.query.q,
