@@ -84,9 +84,26 @@ app.post("/api/ai/analyze-image", async (req, res) => {
     const analysis = await analyzeProductImage({ base64Image, mimeType });
     return res.json({ ok: true, analysis });
   } catch (error) {
+    console.error("[ai/analyze-image] failed:", error);
     return res.status(502).json({
       ok: false,
       error: error instanceof Error ? error.message : String(error),
+      cause: error?.cause?.message || null,
+    });
+  }
+});
+
+app.post("/api/ai/test", async (_req, res) => {
+  try {
+    const { createTextTest } = await import("./gemini.js");
+    const reply = await createTextTest();
+    return res.json({ ok: true, reply });
+  } catch (error) {
+    console.error("[ai/test] failed:", error);
+    return res.status(502).json({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      cause: error?.cause?.message || null,
     });
   }
 });
