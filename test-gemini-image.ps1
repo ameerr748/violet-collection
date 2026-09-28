@@ -32,6 +32,18 @@ catch {
   Write-Host ""
   Write-Host "Image test failed:" -ForegroundColor Red
   Write-Host $_.Exception.Message
+  try {
+    if ($_.Exception.Response) {
+      $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+      $body = $reader.ReadToEnd()
+      $reader.Close()
+      Write-Host ""
+      Write-Host "Backend error details:" -ForegroundColor Yellow
+      Write-Host $body
+    }
+  } catch {
+    Write-Host "Could not read backend error details."
+  }
 }
 finally {
   if (Test-Path $tempFile) {
