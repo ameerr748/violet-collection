@@ -25,6 +25,17 @@ try {
   $env:STORAGE_MANAGER_PER_PAGE = "18"
   $env:SYNC_ON_START = "true"
 
+  $gemini = Read-Host "الصق Gemini API Key هنا (اضغط Enter للتخطي إذا لم تجهزه بعد)" -AsSecureString
+  $gPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($gemini)
+  try {
+    $gPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($gPtr)
+    if (-not [string]::IsNullOrWhiteSpace($gPlain)) { $env:GEMINI_API_KEY = $gPlain }
+  } finally {
+    $gPlain = $null
+    $gemini = $null
+    if ($gPtr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($gPtr) }
+  }
+
   if (-not (Test-Path "node_modules")) {
     Write-Host "Installing dependencies..." -ForegroundColor Yellow
     npm install
@@ -41,4 +52,5 @@ finally {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
   }
   Remove-Item Env:STORAGE_MANAGER_TOKEN -ErrorAction SilentlyContinue
+  Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
 }
